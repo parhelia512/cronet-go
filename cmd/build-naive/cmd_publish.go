@@ -136,6 +136,10 @@ func generateAllGoMod(allDirectory, pseudoVersion string, builtTargets []string)
 	var builder strings.Builder
 	builder.WriteString("module github.com/sagernet/cronet-go/all\n\n")
 	builder.WriteString("go 1.20\n\n")
+	builder.WriteString(fmt.Sprintf("replace github.com/sagernet/cronet-go => github.com/parhelia512/cronet-go %s\n", pseudoVersion))
+	for _, targetName := range builtTargets {
+		builder.WriteString(fmt.Sprintf("replace github.com/sagernet/cronet-go/lib/%s => github.com/parhelia512/cronet-go/lib/%s %s\n", targetName, targetName, pseudoVersion))
+	}
 	builder.WriteString("require (\n")
 	builder.WriteString(fmt.Sprintf("\tgithub.com/sagernet/cronet-go %s\n", pseudoVersion))
 	for _, targetName := range builtTargets {
