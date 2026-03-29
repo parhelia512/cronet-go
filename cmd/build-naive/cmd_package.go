@@ -147,6 +147,7 @@ func generateLocalCGOFiles(targets []Target) {
 		ldFlags = append(ldFlags, linkFlags.LDFlags...)
 		ldFlags = append(ldFlags, linkFlags.Libs...)
 		ldFlags = append(ldFlags, linkFlags.Frameworks...)
+		ldFlags = append(ldFlags, linkFlags.WeakFrameworks...)
 
 		if t.GOOS == "linux" && t.Libc == "musl" {
 			ldFlags = append(ldFlags, "-static")
@@ -229,6 +230,7 @@ func getBuildTag(t Target) string {
 type LinkFlags struct {
 	Libs       []string
 	Frameworks []string
+	WeakFrameworks []string
 	LDFlags    []string
 }
 
@@ -243,6 +245,7 @@ func extractLinkFlags(outputDirectory string) (LinkFlags, error) {
 	var flags LinkFlags
 	libsRegex := regexp.MustCompile(`^\s*libs\s*=\s*(.*)$`)
 	frameworksRegex := regexp.MustCompile(`^\s*frameworks\s*=\s*(.*)$`)
+	weakframeworksRegex := regexp.MustCompile(`^\s*weak_frameworks\s*=\s*(.*)$`)
 	ldflagsRegex := regexp.MustCompile(`^\s*ldflags\s*=\s*(.*)$`)
 
 	scanner := bufio.NewScanner(file)
@@ -268,6 +271,13 @@ func extractLinkFlags(outputDirectory string) (LinkFlags, error) {
 				flags.Frameworks = parseFrameworks(frameworksStr)
 			}
 		}
+		
+		if matches := weakframeworksRegex.FindStringSubmatch(line); matches != nil {
+			weakframeworksStr := strings.TrimSpace(matches[1])
+			if weakframeworksStr != "" {
+				flags.WeakFrameworks = parseWeakFrameworks(weakframeworksStr)
+			}
+		}
 
 		if matches := ldflagsRegex.FindStringSubmatch(line); matches != nil {
 			ldflagsStr := strings.TrimSpace(matches[1])
@@ -290,6 +300,18 @@ func parseFrameworks(input string) []string {
 	for i := 0; i < len(parts); i++ {
 		if parts[i] == "-framework" && i+1 < len(parts) {
 			result = append(result, "-framework "+parts[i+1])
+			i++
+		}
+	}
+	return result
+}
+
+func parseWeakFrameworks(input string) []string {
+	var result []string
+	parts := strings.Fields(input)
+	for i := 0; i < len(parts); i++ {
+		if parts[i] == "-weak_framework" && i+1 < len(parts) {
+			result = append(result, "-weak_framework "+parts[i+1])
 			i++
 		}
 	}
@@ -346,7 +368,7 @@ go 1.20
 			log.Fatalf("failed to extract link flags for %s: %v", formatTargetLog(t), err)
 		}
 
-		log.Printf("Extracted link flags for %s: libs=%v frameworks=%v ldflags=%v", formatTargetLog(t), linkFlags.Libs, linkFlags.Frameworks, linkFlags.LDFlags)
+		log.Printf("Extracted link flags for %s: libs=%v frameworks=%v weakframeworks=%v ldflags=%v", formatTargetLog(t), linkFlags.Libs, linkFlags.Frameworks, linkFlags.WeakFrameworks, linkFlags.LDFlags)
 
 		buildTag := getBuildTag(t)
 
@@ -361,6 +383,7 @@ go 1.20
 		ldFlags = append(ldFlags, linkFlags.LDFlags...)
 		ldFlags = append(ldFlags, linkFlags.Libs...)
 		ldFlags = append(ldFlags, linkFlags.Frameworks...)
+		ldFlags = append(ldFlags, linkFlags.WeakFrameworks...)
 
 		if t.GOOS == "linux" && t.Libc == "musl" {
 			ldFlags = append(ldFlags, "-static")
